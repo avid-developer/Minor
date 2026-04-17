@@ -1,0 +1,19 @@
+{
+  "name": "minor-p2p-chat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal libp2p starter for two peers to exchange messages",
+  "scripts": {
+    "peer": "node src/peer.js"
+  },
+  "dependencies": {
+    "@chainsafe/libp2p-noise": "^17.0.0",
+    "@chainsafe/libp2p-yamux": "^8.0.0",
+    "@libp2p/tcp": "^11.0.1",
+    "@libp2p/utils": "^7.0.1",
+    "@multiformats/multiaddr": "^13.0.1",
+    "libp2p": "^3.0.2",
+    "uint8arrays": "^5.1.0"
+  }
+}
