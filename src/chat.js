@@ -1,9 +1,14 @@
 import readline from 'node:readline'
 
-import { lpStream } from '@libp2p/utils'
-import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
+import { createSecureChannel } from './secure-channel.js'
 
-export function createChatConsole ({ localName }) {
+export function createChatConsole ({
+  localName,
+  localIdentity,
+  libp2pPeerId,
+  getLocalAddresses,
+  peerRegistry
+}) {
   const channels = new Map()
   let counter = 0
 
@@ -11,6 +16,10 @@ export function createChatConsole ({ localName }) {
     input: process.stdin,
     output: process.stdout,
     terminal: true
+  })
+
+  rl.on('SIGINT', () => {
+    process.emit('SIGINT')
   })
 
   rl.on('line', async (line) => {
@@ -25,39 +34,55 @@ export function createChatConsole ({ localName }) {
       return
     }
 
-    await Promise.all(Array.from(channels.values(), async ({ writer, label }) => {
+    await Promise.all(Array.from(channels.values(), async ({ channel, label }) => {
       try {
-        await writer.write(Buffer.from(message))
+        await channel.sendText(message)
       } catch (error) {
         console.error(`Failed to send to ${label}: ${error.message}`)
       }
     }))
   })
 
-  function attachStream (stream, label = null) {
-    const channelLabel = label ?? `peer-${++counter}`
-    const framedStream = lpStream(stream)
+  async function attachStream (stream, label = null) {
+    const channelLabel = `${label ?? 'peer'}-${++counter}`
 
-    channels.set(channelLabel, {
-      label: channelLabel,
-      writer: framedStream
-    })
+    console.log(`[${localName}] starting identity handshake with ${channelLabel}`)
 
-    console.log(`[${localName}] chat stream ready with ${channelLabel}`)
-
-    void readLoop(framedStream, channelLabel)
-    return channelLabel
-  }
-
-  async function readLoop (framedStream, channelLabel) {
     try {
-      while (true) {
-        const message = await framedStream.read()
-        console.log(`[${channelLabel}] ${uint8ArrayToString(message.subarray())}`)
-      }
+      const channel = await createSecureChannel({
+        stream,
+        localIdentity,
+        libp2pPeerId,
+        getLocalAddresses
+      })
+      const remoteShortId = channel.remote.peerId.slice(0, 12)
+      const fullLabel = `${channelLabel}:${remoteShortId}`
+
+      channels.set(channelLabel, {
+        label: fullLabel,
+        channel
+      })
+
+      await peerRegistry.upsert(channel.remote.document)
+
+      console.log(`[${localName}] verified remote DID ${channel.remote.did}`)
+      console.log(`[${localName}] ECDH complete; chat messages are AES-GCM encrypted.`)
+
+      void channel.readLoop(
+        (message) => {
+          console.log(`[${fullLabel}] ${message}`)
+        },
+        (error) => {
+          channels.delete(channelLabel)
+          console.log(`[${fullLabel}] disconnected: ${error.message}`)
+        }
+      )
+
+      return fullLabel
     } catch (error) {
-      console.log(`[${channelLabel}] disconnected`)
       channels.delete(channelLabel)
+      console.error(`[${localName}] secure channel failed with ${channelLabel}: ${error.message}`)
+      return null
     }
   }
 
