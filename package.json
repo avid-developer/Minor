@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Minimal libp2p starter for two peers to exchange messages",
   "scripts": {
-    "peer": "node src/peer.js"
+    "peer": "node src/peer.js",
+    "tcp-check": "node src/tcp-check.js"
   },
   "dependencies": {
     "@chainsafe/libp2p-noise": "^17.0.0",

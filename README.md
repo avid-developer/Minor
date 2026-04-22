@@ -91,6 +91,26 @@ You can disable LAN mDNS when testing bootstrap behavior:
 npm run peer -- --port 4101 --name peer-b --identity peer-b --no-mdns --bootstrap /ip4/<seed-ip>/tcp/4100
 ```
 
+## Tailscale / WSL Troubleshooting
+
+If Peer B prints `connect EACCES <tailscale-ip>:4100`, the operating system blocked the outbound connection before the project code could connect.
+
+Common fix on Windows:
+
+- If you are running from WSL, try running the same command from native Windows PowerShell or CMD instead.
+- If you want to keep using WSL, install and run Tailscale inside WSL too, then use the WSL Tailscale IP.
+- Check both devices are in the same tailnet with `tailscale status`.
+- Check Peer B can reach Peer A with `tailscale ping <peer-a-tailscale-ip>`.
+- Check plain TCP before debugging libp2p:
+
+```bash
+npm run tcp-check -- <peer-a-tailscale-ip> 4100
+```
+
+- Make sure Peer A is still running and announced the same port that Peer B bootstraps to.
+- If `tcp-check` fails on Windows, allow Node.js through Windows Defender Firewall or try PowerShell as Administrator.
+- If `tcp-check` fails from Windows to macOS, allow incoming connections for Node.js on macOS or temporarily test with the macOS firewall disabled.
+
 ## Peer Registry
 
 Each peer stores local project data in `.data/`:

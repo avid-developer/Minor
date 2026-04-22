@@ -126,6 +126,34 @@ function peerDiscoveryId (discoveredPeer) {
   return discoveredPeer.id?.toString() ?? discoveredPeer.peerId?.toString() ?? 'unknown-peer'
 }
 
+function explainFatalError (error) {
+  const message = error?.message ?? String(error)
+
+  if (message.includes('EACCES')) {
+    return `${message}
+
+Hint: the operating system denied the outbound connection before libp2p could connect.
+If this is a Tailscale address from WSL, run the peer from native Windows PowerShell/CMD instead,
+or install and run Tailscale inside WSL. Also check that both devices are in the same tailnet.`
+  }
+
+  if (message.includes('ECONNREFUSED')) {
+    return `${message}
+
+Hint: the target IP is reachable, but nothing accepted the TCP connection on that port.
+Check that the bootstrap peer is still running and that the port in --announce/--bootstrap matches.`
+  }
+
+  if (message.includes('ETIMEDOUT')) {
+    return `${message}
+
+Hint: the target did not respond. Check Tailscale connectivity, firewall rules, and whether Peer A
+is advertising the correct Tailscale IP.`
+  }
+
+  return message
+}
+
 async function main () {
   const options = parseArgs(process.argv.slice(2))
 
@@ -315,6 +343,6 @@ async function main () {
 }
 
 main().catch((error) => {
-  console.error(error.message)
+  console.error(explainFatalError(error))
   process.exit(1)
 })
